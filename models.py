@@ -2,6 +2,7 @@
 
 import mlbgame
 
+
 class Game():
     def __init__(self, game_id, home_team, away_team, date):
         self.game_id = game_id
@@ -13,10 +14,11 @@ class Game():
         return self.game_id
 
     def from_mlbgame(mlb_game_object):
-        return Game(game_id=mlb_game_object.game_id,
-                    home_team=mlb_game_object.home_team,
-                    away_team=mlb_game_object.away_team,
-                    date=mlb_game_object.date)
+        return Game(
+            game_id=mlb_game_object.game_id,
+            home_team=mlb_game_object.home_team,
+            away_team=mlb_game_object.away_team,
+            date=mlb_game_object.date)
 
     def retrieve_player_statistics(self):
         player_statistics = mlbgame.player_stats(self.game_id)
@@ -53,14 +55,15 @@ class HitterGame():
         return '{}-{}'.format(self.player_id, self.game.game_id)
 
     def from_batting_stats(batting_stats, game_id, team):
-        return HitterGame(ab=batting_stats.ab,
-                          bb=batting_stats.bb,
-                          bo=batting_stats.bo if hasattr(
-                              batting_stats, 'bo') else 9,
-                          hbp=batting_stats.hbp,
-                          h=batting_stats.hbp,
-                          so=batting_stats.so,
-                          sac=batting_stats.sac + batting_stats.sf,
-                          player_id=batting_stats.id,
-                          game_id=game_id,
-                          team=team)
+        return HitterGame(
+            ab=batting_stats.ab,
+            bb=batting_stats.bb,
+            bo=batting_stats.bo if hasattr(
+                batting_stats, 'bo') else 9,
+            hbp=batting_stats.hbp,
+            h=batting_stats.hbp,
+            so=batting_stats.so,
+            sac=batting_stats.sac + batting_stats.sf,
+            player_id=batting_stats.id,
+            game_id=game_id,
+            team=team)
