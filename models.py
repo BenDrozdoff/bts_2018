@@ -1,5 +1,6 @@
 # coding utf-8
 
+import mlbgame
 
 class Game():
     def __init__(self, game_id, home_team, away_team, date):
