@@ -52,7 +52,7 @@ class HitterGame():
         self.pa = ab + bb + hbp + sac
 
     def __repr__(self):
-        return '{}-{}'.format(self.player_id, self.game.game_id)
+        return '{}-{}'.format(self.player_id, self.game_id)
 
     def from_batting_stats(batting_stats, game_id, team):
         return HitterGame(
@@ -61,7 +61,7 @@ class HitterGame():
             bo=batting_stats.bo if hasattr(
                 batting_stats, 'bo') else 9,
             hbp=batting_stats.hbp,
-            h=batting_stats.hbp,
+            h=batting_stats.h,
             so=batting_stats.so,
             sac=batting_stats.sac + batting_stats.sf,
             player_id=batting_stats.id,

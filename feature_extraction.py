@@ -1,19 +1,32 @@
 # coding utf-8
 
+import numpy as np
+
 from sklearn.base import TransformerMixin
+from sklearn.feature_extraction import DictVectorizer
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 
+def hitter_home_or_away(hitter_game, game, home_output, away_output):
+    if hitter_game.team == game.home_team:
+        return home_output
+    elif hitter_game.team == game.away_team:
+        return away_output
+    else:
+        raise Exception('Team name {} does not match home team {} or away team {}'.format(
+            hitter_game.team, game.home_team, game.away_team))
+
+
 class AttributeExtractor(TransformerMixin):
     def __init__(self, attr_name):
-        self.id_attr_name = attr_name
+        self.attr_name = attr_name
 
     def fit(self, x, y=None):
         return self
 
     def transform(self, x):
-        return [getattr(sample, self.attr_name) for sample in x]
+        return np.array([getattr(sample, self.attr_name) for sample in x]).reshape(-1, 1)
 
 
 class GameAttributeExtractor(TransformerMixin):
@@ -25,8 +38,22 @@ class GameAttributeExtractor(TransformerMixin):
         return self
 
     def transform(self, x):
-        return [getattr(game_id_map[sample.game_id], self.game_attr_name)
-                for sample in x]
+        return np.array([getattr(self.game_id_map[sample.game_id], self.game_attr_name)
+                         for sample in x]).reshape(-1, 1)
+
+
+class TextDictEncoder(TransformerMixin):
+    '''Hacky alternative to using LabelEncoder or LabelBinarizer within a pipeline
+    Transforming free text into dicts and using dict vectorizer'''
+
+    def __init__(self):
+        pass
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, x):
+        return [{string[0]: True} for string in x]
 
 
 class HomeAwayExtractor(TransformerMixin):
@@ -37,16 +64,40 @@ class HomeAwayExtractor(TransformerMixin):
         return self
 
     def transform(self, x):
-        results = list()
-        for sample in x:
-            game = game_id_map[sample.game_id]
-            if sample.team == game.home_team:
-                results.append(1)
-            elif sample.team == game.away_team:
-                results.append(0)
-            else raise Exception('Team name {} does not match home team {} or away team {}'.format(
-                sample.team, game.home_team, game.away_team))
-        return results
+        return np.array(
+            [hitter_home_or_away(sample, self.game_id_map[sample.game_id], 1, 0) for sample in x]).reshape(-1, 1)
+
+
+class GotHitExtractor(TransformerMixin):
+    def __init__(self):
+        pass
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, x):
+        return np.array([1 if sample.h > 0 else 0 for sample in x])
+
+
+class OpponentExtractor(TransformerMixin):
+    def __init__(self, game_id_map, home_attr, away_attr):
+        self.game_id_map = game_id_map
+        self.home_attr = home_attr
+        self.away_attr = away_attr
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, x):
+        results = np.empty(len(x))
+        for row_index, hitter_game in enumerate(x):
+            game = self.game_id_map[hitter_game.game_id]
+            results[row_index] = hitter_home_or_away(
+                hitter_game=hitter_game,
+                game=game,
+                home_output=getattr(game, self.home_attr),
+                away_output=getattr(game, self.away_attr))
+        return results.reshape(-1, 1)
 
 
 def create_player_id_pipeline():
@@ -55,10 +106,24 @@ def create_player_id_pipeline():
 
 
 def create_feature_matrix(game_id_map):
-    return FeatureUnion(
+    return FeatureUnion([
         ('player_id', create_player_id_pipeline()),
         ('is_home', Pipeline([('is_home', HomeAwayExtractor(game_id_map))])),
         ('stadium', Pipeline([
             ('home_team_name', GameAttributeExtractor(game_id_map, 'home_team')),
-            ('onehot', OneHotEncoder())]))
+            ('dictionary', TextDictEncoder()),
+            ('binarize', DictVectorizer())])),
+        ('opposing_starter', Pipeline([
+            ('opposing_starter_id', OpponentExtractor(
+                game_id_map, home_attr='away_starter', away_attr='home_starter')),
+            ('onehot', OneHotEncoder())])),
+        ('opposing_team',  Pipeline([
+            ('opposing_team_name', OpponentExtractor(
+                game_id_map, home_attr='away_starter', away_attr='home_starter')),
+            ('dictionary', TextDictEncoder()),
+            ('binarize', DictVectorizer())]))]
     )
+
+
+def create_response_pipeline():
+    return Pipeline([('got_hit', GotHitExtractor())])
